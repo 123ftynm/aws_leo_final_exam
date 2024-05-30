@@ -1,7 +1,7 @@
 Parameters:
   DBName:
     Type: String
-    Default: 'stevedb'
+    Default: 'metroddb'
     Description: "Enter Your dynamoDB Name"
 
 Resources:
@@ -19,3 +19,20 @@ Resources:
       Tags:
         - Key: 'Environment'
           Value: 'Production'
+
+  MyVPC:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      CidrBlock: '10.50.0.0/16'
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      InstanceTenancy: 'default'
+      Tags:
+        - Key: Name
+          Value: MyVPC
+
+Outputs:
+  VPCId:
+    Description: 'The ID of the VPC'
+    Value: !Ref MyVPC
+
