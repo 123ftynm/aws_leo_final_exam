@@ -1,0 +1,21 @@
+Parameters:
+  DBName:
+    Type: String
+    Default: 'stevedb'
+    Description: "Enter Your dynamoDB Name"
+
+Resources:
+  MetroDDBTable:
+    Type: 'AWS::DynamoDB::Table'
+    Properties:
+      TableName: !Ref DBName
+      AttributeDefinitions:
+        - AttributeName: 'ID'
+          AttributeType: 'S'
+      KeySchema:
+        - AttributeName: 'ID'
+          KeyType: 'HASH'
+      BillingMode: PAY_PER_REQUEST
+      Tags:
+        - Key: 'Environment'
+          Value: 'Production'
