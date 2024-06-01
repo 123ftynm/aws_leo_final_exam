@@ -1,0 +1,286 @@
+Parameters:
+  DBName:
+    Type: String
+    Default: 'metroddb'
+    Description: "Enter Your dynamoDB Name"
+
+  vpcCIDR:
+    Type: String
+    Default: "10.50.0.0/16"
+    Description: "Enter Your VPC CIDR"
+    
+  amiID:
+    Type: String
+    Default: 'ami-05e5688f9ac7ade41'
+    Description: "Enter Your EC2 AMI ID"
+
+  EC2KeyPair:
+    Type: AWS::EC2::KeyPair::KeyName
+
+  InstanceTypeParameter:
+    Type: String
+    Default: t2.micro
+    AllowedValues:
+      - t2.micro
+      - m1.small
+      - m1.large
+      - t3.micro
+    Description: Enter t2.micro, m1.small, or m1.large. Default is t2.micro.
+
+  subnet1CIDR:
+    Type: String
+    Default: "10.50.1.0/24"
+    Description: "Enter Your Subnet1 CIDR"
+  
+  subnet2CIDR:
+    Type: String
+    Default: "10.50.2.0/24"
+    Description: "Enter Your Subnet2 CIDR"
+
+  subnet3CIDR:
+    Type: String
+    Default: "10.50.3.0/24"
+    Description: "Enter Your Subnet3 CIDR"
+
+  subnet4CIDR:
+    Type: String
+    Default: "10.50.4.0/24"
+    Description: "Enter Your Subnet4 CIDR"
+
+  az1:
+    Type: String
+    Default: "ca-central-1a"
+    Description: "Enter Your AZ-1 ID"
+
+  az2:
+    Type: String
+    Default: "ca-central-1b"
+    Description: "Enter Your AZ-2 ID"
+
+Resources:
+  MetroDDBTable:
+    Type: 'AWS::DynamoDB::Table'
+    Properties:
+      TableName: !Ref DBName
+      AttributeDefinitions:
+        - AttributeName: 'ID'
+          AttributeType: 'S'
+      KeySchema:
+        - AttributeName: 'ID'
+          KeyType: 'HASH'
+      BillingMode: PAY_PER_REQUEST
+      Tags:
+        - Key: 'Environment'
+          Value: 'Production'
+
+  MyVPC:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      CidrBlock: !Ref vpcCIDR
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      InstanceTenancy: 'default'
+      Tags:
+        - Key: Name
+          Value: MyVPC
+
+
+
+  customInternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: stack
+        Value: production
+  
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref MyVPC
+      InternetGatewayId:
+        Ref: customInternetGateway
+
+
+  publicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:  
+        Ref: MyVPC
+      Tags:
+      - Key: stack
+        Value: production
+  
+  publicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId:
+        Ref: publicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId:
+        Ref: customInternetGateway
+
+  subnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: MyVPC
+      CidrBlock: !Ref subnet1CIDR
+      AvailabilityZone: !Ref az1
+      MapPublicIpOnLaunch: true
+      Tags:
+      - Key: stack
+        Value: production
+
+  subnet3:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: MyVPC
+      CidrBlock: !Ref subnet3CIDR
+      AvailabilityZone: !Ref az2
+      MapPublicIpOnLaunch: true
+      Tags:
+      - Key: stack
+        Value: production
+
+  subnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: MyVPC
+      CidrBlock: !Ref subnet2CIDR
+      AvailabilityZone: !Ref az1
+      Tags:
+      - Key: stack
+        Value: production
+
+  subnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: subnet2
+      RouteTableId:
+        Ref: PrivateRouteTable
+
+  subnet4:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: MyVPC
+      CidrBlock: !Ref subnet4CIDR
+      AvailabilityZone: !Ref az2
+      Tags:
+      - Key: stack
+        Value: production
+
+
+ 
+
+  subnet4RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: subnet4
+      RouteTableId:
+        Ref: PrivateRouteTable
+  
+
+  subnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: subnet1
+      RouteTableId:
+        Ref: publicRouteTable
+
+  subnet3RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: subnet3
+      RouteTableId:
+        Ref: publicRouteTable
+
+
+
+  myEIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
+
+  
+
+  PrivateRouteTable:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref MyVPC
+
+
+  privateRoute:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: '0.0.0.0/0'
+      NatGatewayId: !Ref NATGateway
+
+  NATGateway:
+   Type: AWS::EC2::NatGateway
+   Properties:
+      AllocationId: !GetAtt myEIP.AllocationId
+      SubnetId: !Ref subnet1
+      Tags:
+      - Key: stack
+        Value: production
+
+
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow http to client host
+      VpcId: !Ref MyVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          CidrIp: 0.0.0.0/0
+
+
+  MyEC2Instance1: 
+    Type: AWS::EC2::Instance
+    Properties: 
+      ImageId: !Ref amiID
+      KeyName: !Ref EC2KeyPair
+      InstanceType: !Ref InstanceTypeParameter
+      SecurityGroupIds: 
+        - !Ref InstanceSecurityGroup
+      SubnetId: !Ref subnet1
+
+  MyEC2Instance2: 
+    Type: AWS::EC2::Instance
+    Properties: 
+      ImageId: !Ref amiID
+      KeyName: !Ref EC2KeyPair
+      InstanceType: !Ref InstanceTypeParameter
+      SecurityGroupIds: 
+        - !Ref InstanceSecurityGroup
+      SubnetId: !Ref subnet2
+
+
+  
+
+   
+
+  
